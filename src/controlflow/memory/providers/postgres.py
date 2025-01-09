@@ -72,6 +72,32 @@ class PostgresMemory(MemoryProvider):
         description="A function that turns a string into a vector.",
     )
 
+    # Connection pool settings
+    pool_size: int = Field(
+        5,
+        description="Number of connections to keep open in the pool.",
+    )
+
+    max_overflow: int = Field(
+        10,
+        description="Number of connections to allow that can overflow the pool.",
+    )
+
+    pool_timeout: int = Field(
+        30,
+        description="Number of seconds to wait before giving up on getting a connection.",
+    )
+
+    pool_recycle: int = Field(
+        1800,
+        description="Number of seconds a connection can be idle before being recycled.",
+    )
+
+    pool_pre_ping: bool = Field(
+        True,
+        description="Check the connection health upon checkout.",
+    )
+
     # Internal: keep a cached Session maker
     _SessionLocal: Optional[sessionmaker] = None
 
@@ -80,10 +106,17 @@ class PostgresMemory(MemoryProvider):
 
     def configure(self, memory_key: str) -> None:
         """
-        Configure a SQLAlchemy session and ensure the table for this
+        Configure a SQLAlchemy session w/connection pooling and ensure the table for this
         memory partition is created if it does not already exist.
         """
-        engine = sqlalchemy.create_engine(self.database_url)
+        engine = sqlalchemy.create_engine(
+            self.database_url,
+            pool_size=self.pool_size,
+            max_overflow=self.max_overflow,
+            pool_timeout=self.pool_timeout,
+            pool_recycle=self.pool_recycle,
+            pool_pre_ping=self.pool_pre_ping,
+            )
 
         # 2) If DB doesn't exist, create it!
         if not database_exists(engine.url):
